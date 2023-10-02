@@ -1,0 +1,422 @@
+1.What are the purchasing patterns of new customers versus repeat customers?
+  SOLTUION:-
+
+  WITH CustomerPurchaseDates AS (
+    SELECT
+        c.customer_id,
+        MIN(r.rental_date) AS first_purchase_date,
+        MAX(r.rental_date) AS latest_purchase_date,
+        COUNT(r.rental_id) AS total_purchases
+    FROM
+        customer c
+    LEFT JOIN
+        rental r ON c.customer_id = r.customer_id
+    GROUP BY
+        c.customer_id)
+
+SELECT
+    CASE
+        WHEN cpd.total_purchases = 1 THEN 'New Customer'
+        ELSE 'Repeat Customer'
+    END AS customer_type,
+    COUNT(*) AS customer_count,
+    AVG(DATEDIFF(cpd.latest_purchase_date, cpd.first_purchase_date)) AS avg_days_between_purchases
+FROM
+    CustomerPurchaseDates cpd
+GROUP BY
+    CASE
+        WHEN cpd.total_purchases = 1 THEN 'New Customer'
+        ELSE 'Repeat Customer'
+    END;
+
+2.Which films have the highest rental rates and are most in demand?
+SOLUTION:-
+
+SELECT
+    f.film_id,
+    f.title AS film_title,
+    f.rental_rate,
+    COUNT(ren.rental_id) AS rental_count
+FROM
+    film f
+LEFT JOIN
+    inventory i ON f.film_id = i.film_id
+LEFT JOIN
+    rental ren ON i.inventory_id = ren.inventory_id
+GROUP BY
+    f.film_id, f.title, f.rental_rate
+ORDER BY
+    f.rental_rate DESC, rental_count DESC
+LIMIT
+    10;
+
+3. Are there correlations between staff performance and customer satisfaction?
+SOLUTION: - 
+
+SELECT
+    s.staff_id,
+    CONCAT(s.first_name, ' ', s.last_name) AS staff_name,
+    COUNT(r.rental_id) AS rental_count,
+    AVG(f.rating) AS average_film_rating
+FROM
+    staff s
+LEFT JOIN
+    rental r ON s.staff_id = r.staff_id
+LEFT JOIN
+    customer c ON r.customer_id = c.customer_id
+LEFT JOIN
+    payment p ON r.rental_id = p.rental_id
+LEFT JOIN
+    inventory i ON r.inventory_id = i.inventory_id
+LEFT JOIN
+    film f ON i.film_id = f.film_id
+GROUP BY
+    s.staff_id, staff_name
+ORDER BY
+    rental_count 
+   DESC;
+
+
+4.Are there seasonal trends in customer behavior across different locations?
+SOLUTION:-
+
+  SELECT
+    c2.country AS country,
+    DATE_FORMAT(r.rental_date, '%M') AS rental_month,
+    COUNT(r.rental_id) AS total_rentals
+FROM
+    rental AS r
+JOIN
+    customer AS c ON r.customer_id = c.customer_id
+JOIN
+    address AS a ON c.address_id = a.address_id
+JOIN
+    city AS c1 ON a.city_id = c1.city_id
+JOIN
+    country AS c2 ON c1.country_id = c2.country_id
+GROUP BY
+    country, rental_month, MONTH(r.rental_date)
+ORDER BY
+    country, MONTH(r.rental_date);
+
+5.How does the inventory vary by film rating?
+SOLUTION: - 
+
+SELECT
+    f.language_id,
+    l.name AS language_name,
+    COUNT(r.rental_id) AS rental_count
+FROM
+    film AS f
+JOIN
+    language AS l ON f.language_id = l.language_id
+JOIN
+    inventory AS i ON f.film_id = i.film_id
+JOIN
+    rental AS r ON i.inventory_id = r.inventory_id
+GROUP BY
+    f.language_id, l.name
+ORDER BY
+    rental_count DESC;
+
+6. How does customer loyalty impact sales revenue over time?
+SOLUTION: - 
+
+SELECT
+    DATE_FORMAT(payment.payment_date, '%Y-%m') AS payment_month,
+    customer.customer_id,
+    CONCAT(customer.first_name, ' ', customer.last_name) AS customer_name,
+    SUM(payment.amount) AS total_sales
+FROM
+    payment
+JOIN
+    customer ON payment.customer_id = customer.customer_id
+GROUP BY
+    payment_month,
+    customer.customer_id,
+    customer_name
+ORDER BY
+    payment_month,
+    customer.customer_id;
+
+7. Are certain film categories more popular in specific locations?
+SOLUTION: - 
+SELECT
+    ct.city_id,
+    ct.city AS city_name,
+    ctry.country AS country_name,
+    c.name AS film_category,
+    COUNT(DISTINCT ren.rental_id) AS rental_count
+FROM
+    rental ren
+LEFT JOIN
+    inventory inv ON ren.inventory_id = inv.inventory_id
+LEFT JOIN
+    film_category fc ON inv.film_id = fc.film_id
+LEFT JOIN
+    category c ON fc.category_id = c.category_id
+LEFT JOIN
+    store sto ON inv.store_id = sto.store_id
+LEFT JOIN
+    address ad ON sto.address_id = ad.address_id
+LEFT JOIN
+    city ct ON ad.city_id = ct.city_id
+LEFT JOIN
+    country ctry ON ct.country_id = ctry.country_id
+GROUP BY
+    ct.city_id, ct.city, ctry.country, c.name
+
+8.How does the availability and knowledge of staff affect customer ratings?
+SOLUTION: - 
+
+SELECT
+    s.staff_id,
+    CONCAT(s.first_name, ' ', s.last_name) AS staff_name,
+    COUNT(r.rental_id) AS rental_count,
+    AVG(f.rating) AS average_film_rating
+FROM
+    staff s
+LEFT JOIN
+    rental r ON s.staff_id = r.staff_id
+LEFT JOIN
+    customer c ON r.customer_id = c.customer_id
+LEFT JOIN
+    payment p ON r.rental_id = p.rental_id
+LEFT JOIN
+    inventory i ON r.inventory_id = i.inventory_id
+LEFT JOIN
+    film f ON i.film_id = f.film_id
+GROUP BY
+    s.staff_id, staff_name
+ORDER BY
+    average_film_rating DESC;
+
+9. How does the proximity of stores to customers impact rental frequency?
+SOLUTION: - 
+   SELECT
+    cu.address_id AS customer_address_id,
+    ci.city_id AS customer_city_id,
+    ci.city AS customer_city,
+    co.country AS customer_country,
+    s.store_id,
+    COUNT(r.rental_id) AS rental_count
+FROM
+    customer AS cu
+JOIN
+    rental AS r ON cu.customer_id = r.customer_id
+JOIN
+    inventory AS i ON r.inventory_id = i.inventory_id
+JOIN
+    store AS s ON i.store_id = s.store_id
+JOIN
+    address AS a ON cu.address_id = a.address_id
+JOIN
+    city AS ci ON a.city_id = ci.city_id
+JOIN
+    country AS co ON ci.country_id = co.country_id
+GROUP BY
+    cu.customer_id, customer_address_id, customer_city_id, customer_city, customer_country, s.store_id
+ORDER BY
+    cu.customer_id, rental_count DESC;
+
+
+10.Do specific film categories attract different age groups of customers?
+SOLUTION: - 
+
+SELECT
+    c.customer_id,
+    COUNT(r.rental_id) AS rental_count,
+    cat.name AS category_name
+FROM
+    customer AS c
+JOIN
+    rental AS r ON c.customer_id = r.customer_id
+JOIN
+    inventory AS i ON r.inventory_id = i.inventory_id
+JOIN
+    film AS f ON i.film_id = f.film_id
+JOIN
+    film_category AS fc ON f.film_id = fc.film_id
+JOIN
+    category AS cat ON fc.category_id = cat.category_id
+GROUP BY
+    c.customer_id, cat.name
+ORDER BY
+    rental_count DESC;
+
+11.What are the demographics and preferences of the highest-spending customers?
+SOLUTION: - 
+  SELECT
+    c.customer_id,
+    CONCAT(c.first_name, ' ', c.last_name) AS customer_name,
+    c.email,
+    c.address_id,
+    a.district AS customer_district,
+    ci.city AS customer_city,
+    co.country AS customer_country,
+    p.payment_id,
+    p.amount AS payment_amount,
+    f.title AS film_title,
+    c2.name AS category_name
+FROM
+    customer AS c
+JOIN
+    address AS a ON c.address_id = a.address_id
+JOIN
+    city AS ci ON a.city_id = ci.city_id
+JOIN
+    country AS co ON ci.country_id = co.country_id
+JOIN
+    payment AS p ON c.customer_id = p.customer_id
+JOIN
+    rental AS r ON p.rental_id = r.rental_id
+JOIN
+    inventory AS i ON r.inventory_id = i.inventory_id
+JOIN
+    film AS f ON i.film_id = f.film_id
+JOIN
+    film_category AS fc ON f.film_id = fc.film_id
+JOIN
+    category AS c2 ON fc.category_id = c2.category_id
+WHERE
+    p.amount = (SELECT MAX(amount) FROM payment)
+ORDER BY
+    c.customer_id;
+
+12 How does the availability of inventory impact customer satisfaction and repeat business?
+SOLUTION:- 
+SELECT
+    cu.customer_id,
+    CONCAT(cu.first_name, ' ', cu.last_name) AS customer_name,
+    cu.create_date AS customer_registration_date,
+    IFNULL(SUM(IF(r.return_date IS NOT NULL, 1, 0)), 0) AS rental_count,
+    IFNULL(SUM(IF(r.return_date IS NOT NULL, p.amount, 0)), 0) AS total_spent,
+    COUNT(DISTINCT i.inventory_id) AS available_inventory_count
+FROM
+    customer AS cu
+LEFT JOIN
+    rental AS r ON cu.customer_id = r.customer_id
+LEFT JOIN
+    payment AS p ON r.rental_id = p.rental_id
+LEFT JOIN
+    inventory AS i ON r.inventory_id = i.inventory_id
+LEFT JOIN
+    address AS a ON cu.address_id = a.address_id
+LEFT JOIN
+    city AS ci ON a.city_id = ci.city_id
+GROUP BY
+    cu.customer_id, customer_name, customer_registration_date
+ORDER BY
+    total_spent DESC;
+
+
+13 What are the busiest hours or days for each store location, and how does it impact staffing requirements?
+SOLUTION: - 
+
+
+   WITH RentalCounts AS (
+    SELECT
+        s.store_id,
+        ct.city AS store_location,
+        DAYOFWEEK(ren.rental_date) AS day_of_week,
+        HOUR(ren.rental_date) AS hour_of_day,
+        COUNT(ren.rental_id) AS rental_count
+    FROM
+        store s
+    JOIN
+        inventory inv ON s.store_id = inv.store_id
+    JOIN
+        rental ren ON inv.inventory_id = ren.inventory_id
+    LEFT JOIN
+        address ad ON s.address_id = ad.address_id
+    LEFT JOIN
+        city ct ON ad.city_id = ct.city_id
+    GROUP BY
+        s.store_id, store_location, day_of_week, hour_of_day
+)
+
+SELECT
+    store_id,
+    store_location,
+    day_of_week,
+    hour_of_day,
+    rental_count
+FROM
+    RentalCounts
+WHERE
+    (store_id, day_of_week, hour_of_day) IN (
+        SELECT
+        store_id,
+        day_of_week,
+        hour_of_day
+        FROM
+        RentalCounts
+        WHERE
+        rental_count = (
+        SELECT
+        MAX(rental_count)
+        FROM
+        RentalCounts AS max_rc
+        WHERE
+        max_rc.store_id = RentalCounts.store_id
+        AND max_rc.day_of_week = RentalCounts.day_of_week))
+ORDER BY
+    store_id, day_of_week, hour_of_day;
+
+14. What are the cultural or demographic factors that influence customer preferences in different locations?
+SOLUTION: - 
+
+SELECT
+    ct.city AS location,
+    ctry.country AS country,
+    AVG(f.rating) AS avg_rating,
+    COUNT(DISTINCT ren.customer_id) AS customer_count,
+    COUNT(DISTINCT f.film_id) AS film_count
+FROM
+    rental ren
+JOIN
+    inventory inv ON ren.inventory_id = inv.inventory_id
+JOIN
+    film f ON inv.film_id = f.film_id
+JOIN
+    customer cust ON ren.customer_id = cust.customer_id
+JOIN
+    address ad ON cust.address_id = ad.address_id
+JOIN
+    city ct ON ad.city_id = ct.city_id
+JOIN
+    country ctry ON ct.country_id = ctry.country_id
+GROUP BY
+    location, country
+ORDER BY
+    avg_rating DESC, customer_count DESC, film_count DESC;
+
+15. How does the availability of films in different languages impact customer
+ satisfaction and rental frequency?
+SOLUTION: - 
+SELECT
+    cu.customer_id,
+    CONCAT(cu.first_name, ' ', cu.last_name) AS customer_name,
+    l.language_id,
+    l.name AS language_name,
+    COUNT(r.rental_id) AS rental_count
+FROM
+    customer cu
+LEFT JOIN
+    rental r ON cu.customer_id = r.customer_id
+LEFT JOIN
+    inventory i ON r.inventory_id = i.inventory_id
+LEFT JOIN
+    film f ON i.film_id = f.film_id
+LEFT JOIN
+    language l ON f.language_id = l.language_id
+GROUP BY
+    cu.customer_id, customer_name, l.language_id, language_name
+ORDER BY
+    cu.customer_id, rental_count DESC;
+
+
+
+
+
+
